@@ -5,19 +5,20 @@ import pickle
 # Initialize Flask app
 app = Flask(__name__)
 
-# Load your pre-trained model (replace 'model.pkl' with your model file)
+# Load your pre-trained model (ensure "model.pkl" exists in the same directory)
 model = pickle.load(open("model.pkl", "rb"))
 
 @app.route("/")
 def home():
-    return render_template("index.html")  # HTML file should be named 'index.html' and in the templates folder
+    # On loading the page, no prediction is passed
+    return render_template("index.html", prediction_text=None)
 
 @app.route("/process", methods=["POST"])
 def process_form():
     try:
         # Collect all inputs from the form
         age = int(request.form["age"])
-        gender = request.form["sex"]  # Updated to "sex" from "gender" to match the form
+        gender = int(request.form["sex"])
         cp = int(request.form["cp"])
         trestbps = int(request.form["trestbps"])
         chol = int(request.form["chol"])
@@ -30,20 +31,21 @@ def process_form():
         ca = int(request.form["ca"])
         thal = int(request.form["thal"])
 
-        # Encode gender
-        gender_encoded = 0 if gender == "0" else 1  # Gender "0" for Female, "1" for Male
+        # Prepare input array for the model
+        input_features = np.array([[age, gender, cp, trestbps, chol, fbs, restecg,
+                                       thalach, exang, oldpeak, slope, ca, thal]])
 
-        # Create input array for the model
-        input_features = np.array([[age, gender_encoded, cp, trestbps, chol, fbs, restecg,
-                                    thalach, exang, oldpeak, slope, ca, thal]])
-
-        # Predict with the model
+        # Predict and log input and prediction
         prediction = model.predict(input_features)
-        prediction_text = "Heart Disease Risk: High" if prediction[0] == 1 else "Heart Disease Risk: Low"
+        print(f"Input: {input_features}")
+        print(f"Prediction: {prediction[0]}")  # Log prediction value
+
+        prediction_text = (
+            "Heart Disease Risk: Low - You seem to be in good health!"
+            if prediction[0] == 1 else
+            "Heart Disease Risk: High - Please consult a healthcare professional."
+        )
 
         return render_template("index.html", prediction_text=prediction_text)
     except Exception as e:
-        return f"An error occurred: {e}"
-
-if __name__ == "__main__":
-    app.run(debug=True)
+        return render_template("index.html", prediction_text=f"An error occurred: {e}")
